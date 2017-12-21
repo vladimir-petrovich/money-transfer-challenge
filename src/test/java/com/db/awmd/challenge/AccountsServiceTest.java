@@ -4,27 +4,38 @@ import com.db.awmd.challenge.domain.Account;
 import com.db.awmd.challenge.exception.DuplicateAccountIdException;
 import com.db.awmd.challenge.service.AccountsService;
 import com.db.awmd.challenge.service.NotificationService;
+import org.junit.After;
 import org.junit.Before;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.MethodSorters;
 import org.mockito.Mockito;
+import org.omg.CORBA.Any;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Scope;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import java.math.BigDecimal;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
 @ActiveProfiles("integration_tests")
 @RunWith(SpringRunner.class)
 @SpringBootTest
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class AccountsServiceTest {
+
+    private Lock sequential = new ReentrantLock();
 
     private static final String ACC_ID_1 = "Id-1";
     private static final String ACC_ID_2 = "Id-2";
@@ -36,7 +47,20 @@ public class AccountsServiceTest {
 
     @Before
     public void before() {
+
+    }
+
+    @Before
+    public void setUp() throws Exception {
+        sequential.lock();
+        createStandardAccountPair();
+        verify(notificationService, Mockito.atLeast(0)).notifyAboutTransfer(any(Account.class), any(String.class));
+    }
+
+    @After
+    public void tearDown() throws Exception {
         accountsService.getAccountsRepository().clearAccounts();
+        sequential.unlock();
     }
 
 
@@ -84,7 +108,6 @@ public class AccountsServiceTest {
 
     @Test
     public void transferBetweenAccounts1() {
-        createStandardAccountPair();
         this.accountsService.transfer(ACC_ID_1, ACC_ID_2, BigDecimal.valueOf(10L));
 
         assertTrue(accountsService.getAccount(ACC_ID_1).getBalance().compareTo(BigDecimal.valueOf(0.10)) == 0);
@@ -93,11 +116,13 @@ public class AccountsServiceTest {
 
     @Test
     public void transferBetweenAccountsAndNotificationChecking() {
-        createStandardAccountPair();
-        this.accountsService.transfer(ACC_ID_1, ACC_ID_2, BigDecimal.valueOf(10L));
+        accountsService.transfer(ACC_ID_1, ACC_ID_2, BigDecimal.valueOf(10L));
 
-        notificationsServiceChecking(accountsService.getAccount(ACC_ID_1),
-                accountsService.getAccount(ACC_ID_2));
+        verify(notificationService, Mockito.times(1)).notifyAboutTransfer(accountsService.getAccount(ACC_ID_1),
+                "Account Id: Id-1 was withdraw. Now it has balance: 0.10");
+        verify(notificationService, Mockito.times(1)).notifyAboutTransfer(accountsService.getAccount(ACC_ID_2),
+                "Account Id: Id-2 was deposit. Now it has balance: 30.20");
+
     }
 
 
@@ -112,13 +137,11 @@ public class AccountsServiceTest {
 
     @Test(expected = javax.validation.ValidationException.class)
     public void tryTransferBetweenAccountsMoreThanFirstAccountHave() {
-        createStandardAccountPair();
         this.accountsService.transfer(ACC_ID_1, ACC_ID_2, BigDecimal.valueOf(100L));
     }
 
     @Test
     public void tryTransferMoreThanFirstAccountHave() {
-        createStandardAccountPair();
         try {
             this.accountsService.transfer(ACC_ID_1, ACC_ID_2, BigDecimal.valueOf(100L));
         } catch (Exception e) {
@@ -127,8 +150,7 @@ public class AccountsServiceTest {
     }
 
     @Test
-    public void tryTransferMoreThanFirstAccountHaveAndVerifyNotification() {
-        createStandardAccountPair();
+    public void transferMoreMoneyThanFromAccountHaveAndVerifyNotification() {
         try {
             this.accountsService.transfer(ACC_ID_1, ACC_ID_2, BigDecimal.valueOf(100L));
         } catch (Exception e) {
@@ -137,12 +159,46 @@ public class AccountsServiceTest {
         verifyZeroInteractions(notificationService);
     }
 
-    private void notificationsServiceChecking(final Account accountFrom, final Account accountTo) {
-        verify(notificationService, Mockito.times(1)).notifyAboutTransfer(accountFrom,
-                "Account Id: " + accountFrom.getAccountId() + " was withdraw." +
-                        "Now it has balance: " + accountFrom.getBalance());
-        verify(notificationService, Mockito.times(1)).notifyAboutTransfer(accountTo,
-                "Account Id: " + accountTo.getAccountId() + " was deposit." +
-                        "Now it has balance: " + accountTo.getBalance());
+
+    @Test
+    public void tryTransferNegativeValue() {
+        try {
+            this.accountsService.transfer(ACC_ID_1, ACC_ID_2, BigDecimal.valueOf(-100.00));
+        } catch (Exception e) {
+            assertTrue(e.getMessage().equals("Error list is: AMOUNT_TO_TRANSFER_IS_NEGATIVE_OR_ZERO"));
+        }
+        verifyZeroInteractions(notificationService);
     }
+
+    @Test
+    public void transferNegativeValueTest() {
+        try {
+            this.accountsService.transfer(ACC_ID_1, ACC_ID_2, BigDecimal.valueOf(-100.00));
+        } catch (Exception e) {
+            assertTrue(e.getMessage().equals("Error list is: AMOUNT_TO_TRANSFER_IS_NEGATIVE_OR_ZERO"));
+        }
+        verifyZeroInteractions(notificationService);
+    }
+
+
+    @Test
+    public void transferNullValueTest() {
+        try {
+            this.accountsService.transfer(ACC_ID_1, ACC_ID_2, null);
+        } catch (Exception e) {
+            assertTrue(e.getMessage().equals("Error list is: AMOUNT_TO_TRANSFER_IS_NULL"));
+        }
+        verifyZeroInteractions(notificationService);
+    }
+
+    @Test
+    public void transferToTheSameAccountTest() {
+        try {
+            this.accountsService.transfer(ACC_ID_1, ACC_ID_1, BigDecimal.valueOf(10L));
+        } catch (Exception e) {
+            assertTrue(e.getMessage().equals("Error list is: TRANSFER_TO_THE_SAME_ACCOUNT"));
+        }
+        verifyZeroInteractions(notificationService);
+    }
+
 }

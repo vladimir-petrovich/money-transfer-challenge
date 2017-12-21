@@ -76,10 +76,10 @@ public class AccountsService {
 
                 notificationService.notifyAboutTransfer(accountFrom,
                         "Account Id: " + accountFrom.getAccountId() + " was withdraw." +
-                                "Now it has balance: " + accountFrom.getBalance());
+                                " Now it has balance: " + accountFrom.getBalance());
                 notificationService.notifyAboutTransfer(accountTo,
                         "Account Id: " + accountTo.getAccountId() + " was deposit." +
-                                "Now it has balance: " + accountTo.getBalance());
+                                " Now it has balance: " + accountTo.getBalance());
             } else {
                 throw new TransferException("Money were not transferred");
             }

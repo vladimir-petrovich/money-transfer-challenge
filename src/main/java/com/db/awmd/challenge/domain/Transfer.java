@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.ToString;
 import org.hibernate.validator.constraints.NotEmpty;
 
+import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
@@ -27,7 +28,7 @@ public class Transfer {
      It should not be possible for an account to end up with negative balance (we do not support overdrafts!)
      */
     @NotNull
-    @Min(value = 0, message = "The amount to transfer should always be a positive number.")
+    @Min(value = 0, message = "The amount to transfer should be a positive number.")
     private BigDecimal amountToTransfer;
 
 
