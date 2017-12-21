@@ -1,5 +1,5 @@
 **Please find below few bullet points which describing extra work which I would consider important to do
-before this project was turned into a production application:**
+before this project will be turned into a production application:**
 
 - Please note that usually money have a currency and fixed number of decimal places.
 So I recommend to develop special class for Money object or use existed solution: 
