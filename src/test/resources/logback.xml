@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true">
+    <property name="LOG_DIR" value="/tmp/" />
+    <property name="LOG_FILE" value="moneyTransferLog" />
+    <property name="LOG_FILE_EX" value="moneyTransferExceptions" />
+    <property name="LOG_PATTERN" value="%date{dd.MM HH:mm:ss.SSS} [%-5level] %logger{36}: %msg%n%rEx" />
+    <property name="SHORT_LOG_PATTERN" value="[%-5level] %logger{36}: %msg%n%rEx" />
+
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <Pattern>${SHORT_LOG_PATTERN}</Pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <Append>true</Append>
+        <file>${LOG_DIR}/${LOG_FILE}.log</file>
+        <encoder>
+            <charset>UTF-8</charset>
+            <Pattern>${LOG_PATTERN}</Pattern>
+        </encoder>
+
+    </appender>
+
+     <root level="DEBUG">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+</configuration>
