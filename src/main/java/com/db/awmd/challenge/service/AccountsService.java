@@ -4,14 +4,15 @@ import com.db.awmd.challenge.domain.Account;
 import com.db.awmd.challenge.domain.Transfer;
 import com.db.awmd.challenge.exception.TransferException;
 import com.db.awmd.challenge.repository.AccountsRepository;
+import com.db.awmd.challenge.validator.TransferInitialValidator;
 import com.db.awmd.challenge.validator.TransferValidator;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.BindException;
 import org.springframework.validation.Errors;
-import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
+import org.springframework.validation.Validator;
 
 import javax.validation.ValidationException;
 import java.math.BigDecimal;
@@ -27,6 +28,8 @@ public class AccountsService {
     private final AccountsRepository accountsRepository;
     @Autowired
     private TransferValidator transferValidator;
+    @Autowired
+    private TransferInitialValidator transferInitialValidator;
     @Autowired
     private NotificationService notificationService;
 
@@ -44,14 +47,16 @@ public class AccountsService {
     }
 
     public void transfer(String accountFromId, String accountToId, BigDecimal amountToTransfer) {
-        final int LOCK_TIMEOUT = 100;
         Transfer transfer = new Transfer(accountFromId, accountToId, amountToTransfer);
+        validateTransfer(transfer, transferInitialValidator);
+
+        final int LOCK_TIMEOUT = 100;
         final ReentrantLock accountFromLock = accountsRepository.getAccount(transfer.getAccountFromId()).getLock();
         final ReentrantLock accountToLock = accountsRepository.getAccount(transfer.getAccountToId()).getLock();
 
         try {
             Account accountFrom = null;
-            Account accountTo= null;
+            Account accountTo = null;
             if (accountFromLock.tryLock(LOCK_TIMEOUT, TimeUnit.MILLISECONDS)) {
                 try {
                     if (accountToLock.tryLock(LOCK_TIMEOUT, TimeUnit.MILLISECONDS)) {
@@ -59,7 +64,7 @@ public class AccountsService {
                             accountFrom = accountsRepository.getAccount(transfer.getAccountFromId());
                             accountTo = accountsRepository.getAccount(transfer.getAccountToId());
 
-                            validateTransfer(transfer);
+                            validateTransfer(transfer, transferValidator);
 
                             accountsRepository.updateAccount(accountFrom.getAccountId(),
                                     accountFrom.withdrawMoney(transfer.getAmountToTransfer()));
@@ -88,7 +93,7 @@ public class AccountsService {
         }
     }
 
-    private void validateTransfer(Transfer transfer) throws ValidationException{
+    private void validateTransfer(Transfer transfer, Validator validator) throws ValidationException {
         Errors errors = new BindException(transfer, "transfer");
         transferValidator.validate(transfer, errors);
         if (errors.hasErrors()) {

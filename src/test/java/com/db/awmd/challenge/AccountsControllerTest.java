@@ -11,6 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.math.BigDecimal;
@@ -41,9 +43,8 @@ public class AccountsControllerTest {
     @Before
     public void prepareMockMvc() throws Exception {
         this.mockMvc = webAppContextSetup(this.webApplicationContext).build();
-
-        // Reset the existing accounts before each test.
         accountsService.getAccountsRepository().clearAccounts();
+        createStandardAccountPair();
     }
 
     @Test
@@ -108,7 +109,6 @@ public class AccountsControllerTest {
 
     @Test
     public void transferBetweenAccounts() throws Exception {
-        createStandardAccountPair();
         transfer(200);
         assertThat(accountsService.getAccount(ID_1).getBalance()).isEqualByComparingTo("800");
         assertThat(accountsService.getAccount(ID_2).getBalance()).isEqualByComparingTo("1200");
@@ -121,6 +121,13 @@ public class AccountsControllerTest {
                         "\"amountToTransfer\":" + amountToTransfer + "}")).andExpect(status().isOk());
     }
 
+    private ResultActions getTransferStatus(double amountToTransfer) throws Exception {
+        return this.mockMvc.perform(put("/v1/accounts/transfer").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"accountFromId\":\"" + ID_1 + "\"," +
+                        " \"accountToId\":\"" + ID_2 + "\"," +
+                        "\"amountToTransfer\":" + amountToTransfer + "}"));
+    }
+
     private void createStandardAccountPair() throws Exception {
             mockMvc.perform(post("/v1/accounts").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"accountId\":\"" + ID_1 + "\",\"balance\":1000}")).andExpect(status().isCreated());
@@ -128,6 +135,17 @@ public class AccountsControllerTest {
                     .content("{\"accountId\":\"" + ID_2 + "\",\"balance\":1000}")).andExpect(status().isCreated());
     }
 
+    @Test
+    public void transferBetweenAccountsZeroValue() throws Exception {
+        ResultActions resultActions =  getTransferStatus(0);
+        resultActions.andExpect(status().isBadRequest());
+    }
 
+    @Test
+    public void wrongRequestBody() throws Exception {
+        ResultActions resultActions =  getTransferStatus(0);
+        this.mockMvc.perform(put("/v1/accounts/transfer").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"accountFromId\":\" }")).andExpect(status().isBadRequest());
+    }
 
 }

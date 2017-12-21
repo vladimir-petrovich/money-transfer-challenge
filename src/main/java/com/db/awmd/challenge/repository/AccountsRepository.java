@@ -7,11 +7,11 @@ import java.math.BigDecimal;
 
 public interface AccountsRepository {
 
-  void createAccount(Account account) throws DuplicateAccountIdException;
+    void createAccount(Account account) throws DuplicateAccountIdException;
 
-  Account getAccount(String accountId);
+    Account getAccount(String accountId);
 
-  void clearAccounts();
+    void clearAccounts();
 
-  void updateAccount(String accountId, BigDecimal amount);
+    void updateAccount(String accountId, BigDecimal amount);
 }

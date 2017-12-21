@@ -32,10 +32,7 @@ import static org.mockito.Mockito.verifyZeroInteractions;
 @ActiveProfiles("integration_tests")
 @RunWith(SpringRunner.class)
 @SpringBootTest
-@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class AccountsServiceTest {
-
-    private Lock sequential = new ReentrantLock();
 
     private static final String ACC_ID_1 = "Id-1";
     private static final String ACC_ID_2 = "Id-2";
@@ -46,21 +43,15 @@ public class AccountsServiceTest {
     private NotificationService notificationService;
 
     @Before
-    public void before() {
-
-    }
-
-    @Before
-    public void setUp() throws Exception {
-        sequential.lock();
+    public void before() throws Exception {
         createStandardAccountPair();
+        //It is just "reset button" of the mock class
         verify(notificationService, Mockito.atLeast(0)).notifyAboutTransfer(any(Account.class), any(String.class));
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void after() throws Exception {
         accountsService.getAccountsRepository().clearAccounts();
-        sequential.unlock();
     }
 
 
@@ -88,7 +79,7 @@ public class AccountsServiceTest {
     }
 
     @Test
-    public void transferBetweenAccounts2() {
+    public void transferBetweenAccountsWithNonStandardIdsAndValues() {
         String account1Id = "Id-" + "12345";
         Account account1 = new Account(account1Id, new BigDecimal("100.45"));
         this.accountsService.createAccount(account1);
@@ -107,11 +98,17 @@ public class AccountsServiceTest {
     }
 
     @Test
-    public void transferBetweenAccounts1() {
+    public void transferBetweenAccounts() {
         this.accountsService.transfer(ACC_ID_1, ACC_ID_2, BigDecimal.valueOf(10L));
-
         assertTrue(accountsService.getAccount(ACC_ID_1).getBalance().compareTo(BigDecimal.valueOf(0.10)) == 0);
         assertTrue(accountsService.getAccount(ACC_ID_2).getBalance().compareTo(BigDecimal.valueOf(30.20)) == 0);
+    }
+
+    @Test
+    public void transferAllMoneyFromAccount() {
+        this.accountsService.transfer(ACC_ID_1, ACC_ID_2, BigDecimal.valueOf(10.10));
+        assertTrue(accountsService.getAccount(ACC_ID_1).getBalance().compareTo(BigDecimal.valueOf(0.0)) == 0);
+        assertTrue(accountsService.getAccount(ACC_ID_2).getBalance().compareTo(BigDecimal.valueOf(30.30)) == 0);
     }
 
     @Test
@@ -124,7 +121,6 @@ public class AccountsServiceTest {
                 "Account Id: Id-2 was deposit. Now it has balance: 30.20");
 
     }
-
 
     private void createStandardAccountPair() {
         Account account1 = new Account(ACC_ID_1, new BigDecimal("10.10"));
@@ -187,6 +183,17 @@ public class AccountsServiceTest {
             this.accountsService.transfer(ACC_ID_1, ACC_ID_2, null);
         } catch (Exception e) {
             assertTrue(e.getMessage().equals("Error list is: AMOUNT_TO_TRANSFER_IS_NULL"));
+        }
+        verifyZeroInteractions(notificationService);
+    }
+
+    @Test
+    public void transferSomeValueForNullAccountsTest() {
+        try {
+            this.accountsService.transfer(null, null,
+                    BigDecimal.valueOf(10.00));
+        } catch (Exception e) {
+            assertTrue(e.getMessage().equals("Error list is: ACCOUNT_FROM_ID_IS_NULL"));
         }
         verifyZeroInteractions(notificationService);
     }

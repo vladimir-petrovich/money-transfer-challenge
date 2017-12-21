@@ -9,8 +9,6 @@ import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
-import javax.xml.bind.annotation.XmlTransient;
-import java.beans.Transient;
 import java.math.BigDecimal;
 import java.util.concurrent.locks.ReentrantLock;
 
